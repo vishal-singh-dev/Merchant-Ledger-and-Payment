@@ -14,6 +14,7 @@ Production-style sample service implementing append-only ledger, idempotent proc
 - DLQ support and poison-message routing
 - Saga state persistence + compensation marker strategy (`FAILED` + reconcile path)
 - Structured logs with correlation IDs
+- Rotating file logs (`logs/app.log` by default)
 
 ## Repo Layout
 
@@ -46,6 +47,8 @@ Production-style sample service implementing append-only ledger, idempotent proc
 - `POST /v1/credits`
 - `POST /v1/debits`
 - `POST /v1/refunds`
+- `GET /v1/idempotency-key`
+- `POST /v1/merchants`
 - `GET /v1/merchants/{merchant_id}/balance`
 - `GET /v1/merchants/{merchant_id}/ledger?limit=50&cursor=...`
 

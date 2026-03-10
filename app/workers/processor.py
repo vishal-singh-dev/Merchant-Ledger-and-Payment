@@ -34,6 +34,14 @@ def _process_payload(db, payload: dict, headers: dict):
     if existing:
         if existing.request_hash != payload["request_hash"]:
             raise PoisonMessageError("idempotency_hash_mismatch")
+        logger.info(
+            "processor_idempotent_hit",
+            extra={
+                "correlation_id": payload.get("correlation_id", headers.get("correlation_id", "")),
+                "merchant_id": payload.get("merchant_id", ""),
+                "idempotency_key": payload.get("idempotency_key", ""),
+            },
+        )
         return existing.response_json
 
     saga = db.execute(
@@ -73,19 +81,48 @@ def _process_payload(db, payload: dict, headers: dict):
         response_json=response,
     )
     db.add(idem)
+    logger.info(
+        "processor_payload_applied",
+        extra={
+            "correlation_id": payload.get("correlation_id", headers.get("correlation_id", "")),
+            "merchant_id": payload.get("merchant_id", ""),
+            "idempotency_key": payload.get("idempotency_key", ""),
+            "status": result.status,
+            "balance": result.balance,
+        },
+    )
     return response
 
 
 def run_processor() -> None:
     broker = get_broker()
+    logger.info("processor_started", extra={"correlation_id": ""})
     while True:
         messages = broker.poll(timeout=1.0)
+        if messages:
+            logger.info("processor_batch_polled", extra={"correlation_id": "", "batch_size": len(messages)})
         for message in messages:
             try:
+                logger.info(
+                    "processor_message_received",
+                    extra={
+                        "correlation_id": message.headers.get("correlation_id", ""),
+                        "merchant_id": message.value.get("merchant_id", ""),
+                        "idempotency_key": message.value.get("idempotency_key", ""),
+                    },
+                )
                 with SessionLocal() as db:
                     _process_payload(db, message.value, message.headers)
                     db.commit()
                 broker.ack(message)
+                logger.info(
+                    "processor_message_acked",
+                    extra={
+                        "correlation_id": message.headers.get("correlation_id", ""),
+                        "merchant_id": message.value.get("merchant_id", ""),
+                        "idempotency_key": message.value.get("idempotency_key", ""),
+                    },
+                )
             except InsufficientFundsError as exc:
                 with SessionLocal() as db:
                     saga = db.execute(
@@ -100,16 +137,49 @@ def run_processor() -> None:
                         db.commit()
                 broker.publish_dlq(message.key, message.value, message.headers, str(exc))
                 broker.ack(message)
+                logger.warning(
+                    "processor_insufficient_funds_dlq",
+                    extra={
+                        "correlation_id": message.headers.get("correlation_id", ""),
+                        "merchant_id": message.value.get("merchant_id", ""),
+                        "idempotency_key": message.value.get("idempotency_key", ""),
+                        "error": str(exc),
+                    },
+                )
             except POISON_ERRORS as exc:
-                logger.exception("poison_message", extra={"correlation_id": message.headers.get("correlation_id", "")})
+                logger.exception(
+                    "poison_message",
+                    extra={
+                        "correlation_id": message.headers.get("correlation_id", ""),
+                        "merchant_id": message.value.get("merchant_id", ""),
+                        "idempotency_key": message.value.get("idempotency_key", ""),
+                        "error": str(exc),
+                    },
+                )
                 broker.publish_dlq(message.key, message.value, message.headers, str(exc))
                 broker.ack(message)
-            except IntegrityError:
+            except IntegrityError as exc:
+                logger.exception(
+                    "processor_integrity_error",
+                    extra={
+                        "correlation_id": message.headers.get("correlation_id", ""),
+                        "merchant_id": message.value.get("merchant_id", ""),
+                        "idempotency_key": message.value.get("idempotency_key", ""),
+                        "error": str(exc),
+                    },
+                )
                 with SessionLocal() as db:
                     db.rollback()
                 broker.ack(message)
             except Exception:
-                logger.exception("processor_transient_failure", extra={"correlation_id": message.headers.get("correlation_id", "")})
+                logger.exception(
+                    "processor_transient_failure",
+                    extra={
+                        "correlation_id": message.headers.get("correlation_id", ""),
+                        "merchant_id": message.value.get("merchant_id", ""),
+                        "idempotency_key": message.value.get("idempotency_key", ""),
+                    },
+                )
 
 
 if __name__ == "__main__":

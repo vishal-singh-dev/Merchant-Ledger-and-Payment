@@ -1,6 +1,7 @@
 PYTHON ?= py -3.13
+DOCKER_COMPOSE ?= docker compose
 
-.PHONY: install migrate seed run-api run-outbox run-processor test test-unit test-integration
+.PHONY: install migrate seed run-api run-outbox run-processor test test-unit test-integration up down logs ps
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -27,3 +28,15 @@ test-unit:
 
 test-integration:
 	$(PYTHON) -m pytest -m integration -q
+
+up:
+	$(DOCKER_COMPOSE) up --build -d
+
+down:
+	$(DOCKER_COMPOSE) down
+
+logs:
+	$(DOCKER_COMPOSE) logs -f
+
+ps:
+	$(DOCKER_COMPOSE) ps

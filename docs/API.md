@@ -15,6 +15,14 @@ Response:
 {"status":"ok"}
 ```
 
+Generate idempotency key:
+- `GET /v1/idempotency-key`
+
+Response:
+```json
+{"idempotency_key":"3f313958-9f7e-43af-b7a3-12b447003ca8"}
+```
+
 ## Headers
 
 Write endpoints require:
@@ -23,6 +31,14 @@ Write endpoints require:
 
 If `Idempotency-Key` is missing, API returns:
 - `400` with detail: `Idempotency-Key header is required`
+
+Write endpoint error responses:
+- `404` with detail: `merchant_not_found` (unknown merchant)
+- `409` with detail: `idempotency_key_payload_mismatch` (same key, different payload)
+- `409` with detail containing DB integrity error text for other conflicts
+
+Merchant registration error responses:
+- `409` with detail: `merchant_already_exists`
 
 ## Data Models
 
@@ -57,6 +73,18 @@ Rules:
 ```
 
 ## Endpoints
+
+### 0) Generate Idempotency Key
+
+- `GET /v1/idempotency-key`
+- Status: `200 OK`
+
+Response:
+```json
+{
+  "idempotency_key": "3f313958-9f7e-43af-b7a3-12b447003ca8"
+}
+```
 
 ### 1) Create Credit
 
@@ -155,9 +183,37 @@ Use `next_cursor` in the next request:
 curl "http://localhost:5000/v1/merchants/m_001/ledger?limit=50&cursor=2026-03-06T05:20:00.123456"
 ```
 
+### 6) Register Merchant
+
+- `POST /v1/merchants`
+- Status: `201 Created`
+
+Request:
+```json
+{
+  "merchant_id": "m_100",
+  "currency": "USD"
+}
+```
+
+Response:
+```json
+{
+  "merchant_id": "m_100",
+  "currency": "USD",
+  "balance": 0
+}
+```
+
+Example:
+```bash
+curl -X POST http://localhost:5000/v1/merchants \
+  -H "Content-Type: application/json" \
+  -d "{\"merchant_id\":\"m_100\",\"currency\":\"USD\"}"
+```
+
 ## Idempotency Behavior
 
 For write endpoints (`credits`, `debits`, `refunds`):
 - same `merchant_id` + same `Idempotency-Key` + same payload: treated as the same request
 - same `merchant_id` + same `Idempotency-Key` + different payload: `409` with detail `idempotency_key_payload_mismatch`
-

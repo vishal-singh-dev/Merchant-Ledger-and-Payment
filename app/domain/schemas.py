@@ -17,6 +17,21 @@ class AcceptedResponse(BaseModel):
     correlation_id: str
 
 
+class IdempotencyKeyResponse(BaseModel):
+    idempotency_key: str
+
+
+class MerchantRegisterRequest(BaseModel):
+    merchant_id: str = Field(min_length=1, max_length=64)
+    currency: str = Field(min_length=3, max_length=3)
+
+
+class MerchantRegisterResponse(BaseModel):
+    merchant_id: str
+    currency: str
+    balance: int
+
+
 class BalanceResponse(BaseModel):
     merchant_id: str
     currency: str

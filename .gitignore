@@ -7,3 +7,4 @@ __pycache__/
 .venv-local/
 .uv-cache/
 node_modules/
+logs/

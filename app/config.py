@@ -5,6 +5,10 @@ class Settings(BaseSettings):
     app_name: str = "merchant-ledger"
     env: str = "dev"
     log_level: str = "INFO"
+    log_to_file: bool = True
+    log_file_path: str = "logs/app.log"
+    log_file_max_bytes: int = 5_242_880
+    log_file_backup_count: int = 5
 
     database_url: str = "postgresql+psycopg://ledger:ledger@localhost:5432/ledger"
 
