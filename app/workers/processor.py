@@ -4,9 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.broker.factory import get_broker
+from app.config import settings
 from app.db.models import IdempotencyKey, LedgerEntry, Merchant, PaymentType, SagaInstance, SagaState
 from app.db.session import SessionLocal
 from app.domain.exceptions import InsufficientFundsError, MerchantNotFoundError, PoisonMessageError
+from app.logging_config import configure_logging
 from app.saga.service import SagaOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -47,7 +49,7 @@ def _process_payload(db, payload: dict, headers: dict):
     saga = db.execute(
         select(SagaInstance).where(
             SagaInstance.merchant_id == payload["merchant_id"],
-            SagaInstance.data_json["idempotency_key"].astext == payload["idempotency_key"],
+            SagaInstance.data_json["idempotency_key"].as_string() == payload["idempotency_key"],
         )
     ).scalar_one_or_none()
 
@@ -95,6 +97,13 @@ def _process_payload(db, payload: dict, headers: dict):
 
 
 def run_processor() -> None:
+    configure_logging(
+        settings.log_level,
+        settings.log_to_file,
+        settings.log_file_path,
+        settings.log_file_max_bytes,
+        settings.log_file_backup_count,
+    )
     broker = get_broker()
     logger.info("processor_started", extra={"correlation_id": ""})
     while True:
@@ -128,7 +137,7 @@ def run_processor() -> None:
                     saga = db.execute(
                         select(SagaInstance).where(
                             SagaInstance.merchant_id == message.value["merchant_id"],
-                            SagaInstance.data_json["idempotency_key"].astext == message.value["idempotency_key"],
+                            SagaInstance.data_json["idempotency_key"].as_string() == message.value["idempotency_key"],
                         )
                     ).scalar_one_or_none()
                     if saga:

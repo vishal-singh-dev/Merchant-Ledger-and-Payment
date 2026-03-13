@@ -8,11 +8,19 @@ from app.broker.factory import get_broker
 from app.config import settings
 from app.db.models import OutboxEvent, OutboxStatus
 from app.db.session import SessionLocal
+from app.logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
 
 
 def run_outbox_publisher() -> None:
+    configure_logging(
+        settings.log_level,
+        settings.log_to_file,
+        settings.log_file_path,
+        settings.log_file_max_bytes,
+        settings.log_file_backup_count,
+    )
     broker = get_broker()
     logger.info("outbox_publisher_started", extra={"correlation_id": ""})
     while True:

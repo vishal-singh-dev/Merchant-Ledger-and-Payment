@@ -31,7 +31,7 @@
       - --kafka-addr
       - PLAINTEXT://0.0.0.0:9092
       - --advertise-kafka-addr
-      - PLAINTEXT://redpanda:9092
+      - PLAINTEXT://localhost:9092
     ports:
       - "9092:9092"
       - "9644:9644"
@@ -39,7 +39,7 @@
   redpanda-console:
     image: redpandadata/console:v2.7.2
     environment:
-      KAFKA_BROKERS: redpanda:9092
+      KAFKA_BROKERS: localhost:9092
     ports:
       - "8080:8080"
     depends_on:
@@ -62,7 +62,7 @@
     command: sh -c "pip install -r requirements.txt && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     environment:
       DATABASE_URL: postgresql+psycopg://ledger:ledger@postgres:5432/ledger
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_BOOTSTRAP_SERVERS: localhost:9092
       LOCALSTACK_ENDPOINT_URL: http://localstack:4566
     ports:
       - "8000:8000"
@@ -78,7 +78,7 @@
     command: sh -c "pip install -r requirements.txt && python -m app.workers.outbox_publisher"
     environment:
       DATABASE_URL: postgresql+psycopg://ledger:ledger@postgres:5432/ledger
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_BOOTSTRAP_SERVERS: localhost:9092
       LOCALSTACK_ENDPOINT_URL: http://localstack:4566
     depends_on:
       postgres:
@@ -92,7 +92,7 @@
     command: sh -c "pip install -r requirements.txt && python -m app.workers.processor"
     environment:
       DATABASE_URL: postgresql+psycopg://ledger:ledger@postgres:5432/ledger
-      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_BOOTSTRAP_SERVERS: localhost:9092
       LOCALSTACK_ENDPOINT_URL: http://localstack:4566
     depends_on:
       postgres:
